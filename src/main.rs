@@ -1,5 +1,6 @@
 use std::{fs::File, process::ExitCode};
 
+use act::ReadError;
 use gumdrop::Options;
 
 mod act;
@@ -23,37 +24,44 @@ struct Params {
     output: String,
 }
 
+fn err(msg: String) -> ExitCode {
+    println!("{}", msg);
+    ExitCode::FAILURE
+}
+
+fn usage() -> ExitCode {
+    err(Params::usage().to_string())
+}
+
 fn main() -> ExitCode {
     let cmd_args = std::env::args().skip(1).collect::<Vec<String>>();
     let Ok(args) = Params::parse_args_default(&cmd_args) else {
-        println!("{}", Params::usage());
-        return ExitCode::FAILURE;
+        return usage();
     };
 
     if args.help {
-        println!("{}", Params::usage());
-        return ExitCode::FAILURE;
+        return usage();
     }
 
     let Ok(mut in_file) = File::open(&args.input) else {
-        println!("Error: Could not open input file {}", args.input);
-        return ExitCode::FAILURE;
+        return err(format!("Could not open input file: {}", args.input));
     };
 
-    let Ok(palette) = act::Palette::read(&mut in_file, args.all) else {
-        println!("Error: Could not read palette from input file {}", args.input);
-        return ExitCode::FAILURE;
+    let palette = match act::Palette::read(&mut in_file, args.all) {
+        Ok(p) => p,
+        Err(e) => return match e {
+            ReadError::InvalidFileLength => err(format!("Invalid input file length: {}", args.input)),
+            ReadError::IoError => err(format!("Could not read input file: {}", args.input)),
+        }    
     };
 
     let result = if args.overwrite { File::create(&args.output) } else { File::create_new(&args.output) };    
     let Ok(mut out_file) = result else {
-        println!("Error: Could not create file {}", args.output);
-        return ExitCode::FAILURE;
+        return err(format!("Could not create file: {}", args.output));
     };
 
     if palette.write_pdn_txt(&mut out_file).is_err() {
-        println!("Error: Could not write palette to output file {}", args.output);
-        return ExitCode::FAILURE;
+        return err(format!("Error: Could not write palette to output file {}", args.output));
     }
 
     ExitCode::SUCCESS

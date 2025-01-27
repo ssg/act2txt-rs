@@ -4,9 +4,8 @@ version = 4
 
 [[package]]
 name = "act2txt"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "byteorder",
  "gumdrop",
  "palette",
 ]
@@ -31,12 +30,6 @@ name = "by_address"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64fa3c856b712db6612c019f14756e64e4bcea13337a6b33b696333a9eaa2d06"
-
-[[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "fast-srgb8"

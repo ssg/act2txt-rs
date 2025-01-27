@@ -1,12 +1,10 @@
-use std::{fs::File, io::Read};
+use std::io::Read;
 
-use byteorder::{LittleEndian, ReadBytesExt};
 use palette::Srgb;
 
-pub const MAX_FILE_LENGTH: usize = 768;
-pub const MAX_COLOR_BUFFER_LENGTH: usize = MAX_FILE_LENGTH;
-pub const MAX_FILE_LENGTH_WITH_EXTRA_DATA: usize = 772;
+pub const MAX_COLOR_BUFFER_LENGTH: usize = 768;
 pub const MAX_COLORS: usize = 256;
+pub const EXTRA_DATA_SIZE: usize = 4;
 
 #[derive(Debug)]
 pub struct Palette {
@@ -33,52 +31,34 @@ impl From<std::io::Error> for ReadError {
 }
 
 impl Palette {
-    pub fn read(file: &mut File, all: bool) -> Result<Palette, ReadError> {
-        let has_extra = has_extra_data(file)?;
-
+    pub fn read(reader: &mut dyn Read, all: bool) -> Result<Palette, ReadError> {
         let mut buf = [0; MAX_COLOR_BUFFER_LENGTH];
-        if file.read_exact(&mut buf).is_err() {
-            return Err(ReadError::IoError);
-        }
+        reader.read_exact(&mut buf).map_err(|_| ReadError::InvalidFileLength)?;
 
-        let mut extra_data = ExtraData::default();
-        let mut num_colors = MAX_COLORS;
-        if has_extra {
-            num_colors = file.read_u16::<LittleEndian>().map_err(|_| ReadError::IoError)? as usize;
-            extra_data.num_colors = num_colors as u16;
-            extra_data.transparent_index = file.read_u16::<LittleEndian>().map_err(|_| ReadError::IoError)?;
-        }
+        let (extra_data, num_colors) = fun_name(reader, all);
 
-        let mut colors = Vec::with_capacity(num_colors);
-        let mut offset = 0;
-        let mut color = 0;
-        while color < num_colors {
-            colors.push(Srgb::new(buf[offset], buf[offset + 1], buf[offset + 2]));
-            offset += 3;
-            color += 1;
-        }
+        let colors = buf
+            .chunks_exact(3)
+            .take(num_colors)
+            .map(|chunk| Srgb::new(chunk[0], chunk[1], chunk[2]))
+            .collect();
 
-        if has_extra {
-            return Ok(Palette {
-                colors,
-                extra_data: Some(extra_data),
-            });
-        }
-
-        Ok(Palette {
-            colors,
-            extra_data: None,
-        })
+        Ok(Palette { colors, extra_data })
     }
 }
 
-fn has_extra_data(file: &File) -> Result<bool, ReadError> {
-    let file_size = file.metadata()?.len();
-    if file_size == MAX_FILE_LENGTH_WITH_EXTRA_DATA as u64 {
-        return Ok(true);
-    } else if file_size != MAX_FILE_LENGTH as u64 {
-        return Err(ReadError::InvalidFileLength);
+fn fun_name(reader: &mut dyn Read, all: bool) -> (Option<ExtraData>, usize) {
+    let mut extra_buf = [0; EXTRA_DATA_SIZE];
+    let mut extra_data = None;
+    let mut num_colors = MAX_COLORS;
+    if reader.read_exact(&mut extra_buf).is_ok() {
+        if !all {
+            num_colors = u16::from_le_bytes([extra_buf[0], extra_buf[1]]) as usize;
+        }
+        extra_data = Some(ExtraData {
+            num_colors: num_colors as u16,
+            transparent_index: u16::from_le_bytes([extra_buf[2], extra_buf[3]]),
+        });            
     }
-    Ok(false)
+    (extra_data, num_colors)
 }
-
