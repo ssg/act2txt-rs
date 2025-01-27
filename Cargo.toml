@@ -4,6 +4,9 @@ version = "0.1.1"
 authors = ["Sedat Kapanoglu <sedat@kapanoglu.com>"]
 edition = "2021"
 description = "Converts Adobe Photoshop ACT palette files to Paint.NET TXT format"
+license = "MIT"
+license-file = "LICENSE.md"
+homepage = "https://github.com/ssg/act2txt-rs"
 
 [dependencies]
 gumdrop = "0.8.1"
