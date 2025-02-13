@@ -1,3 +1,4 @@
+use core::fmt::Formatter;
 use std::io::Read;
 
 use palette::Srgb;
@@ -15,17 +16,39 @@ pub struct Palette {
 #[derive(Debug)]
 pub enum ReadError {
     InvalidFileLength,
-    IoError,
+    IoError(std::io::Error),
+}
+
+impl core::fmt::Display for ReadError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            ReadError::InvalidFileLength => "Invalid file length",
+            ReadError::IoError(_) => "I/O error",
+        })
+    }
+}
+
+impl core::error::Error for ReadError {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
+    }
+    
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ReadError::InvalidFileLength => None,
+            ReadError::IoError(err) => Some(err),
+        }
+    }
 }
 
 impl From<std::io::Error> for ReadError {
-    fn from(_: std::io::Error) -> Self {
-        ReadError::IoError
+    fn from(err: std::io::Error) -> Self {
+        ReadError::IoError(err)
     }
 }
 
 impl Palette {
-    pub fn read(reader: &mut dyn Read, all: bool) -> Result<Palette, ReadError> {
+    pub fn read(reader: &mut impl Read, all: bool) -> Result<Palette, ReadError> {
         let mut buf = [0; MAX_COLOR_BUFFER_LENGTH];
         reader
             .read_exact(&mut buf)
@@ -42,7 +65,7 @@ impl Palette {
     }
 }
 
-fn read_extra_data(reader: &mut dyn Read, all: bool) -> (Option<u16>, usize) {
+fn read_extra_data(reader: &mut (impl Read + ?Sized), all: bool) -> (Option<u16>, usize) {
     let mut extra_buf = [0; EXTRA_DATA_SIZE];
     let mut transparent_index = None;
     let mut num_colors = MAX_COLORS;

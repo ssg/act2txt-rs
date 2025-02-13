@@ -1,6 +1,6 @@
 [package]
 name = "act2txt"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Sedat Kapanoglu <sedat@kapanoglu.com>"]
 edition = "2021"
 description = "Converts Adobe Photoshop ACT palette files to Paint.NET TXT format"
@@ -8,6 +8,7 @@ license = "MIT"
 homepage = "https://github.com/ssg/act2txt-rs"
 
 [dependencies]
+anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
 env_logger = "0.11.6"
 log = "0.4.25"

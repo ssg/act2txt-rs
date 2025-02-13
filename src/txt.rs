@@ -2,20 +2,9 @@ use std::io::Write;
 
 use crate::act::Palette;
 
-#[derive(Debug)]
-pub enum WriteError {
-    IoError,
-}
-
-impl From<std::io::Error> for WriteError {
-    fn from(_: std::io::Error) -> Self {
-        WriteError::IoError
-    }
-}
-
 impl Palette {
     /// Write the palette to a Paint.NET TXT file.
-    pub fn write_pdn_txt<T: Write>(&self, output: &mut T) -> Result<(), WriteError> {        
+    pub fn write_pdn_txt<T: Write>(&self, output: &mut T) -> Result<(), anyhow::Error> {        
         writeln!(output, "; Created by act2txt v{} - https://github.com/ssg/act2txt-rs", env!("CARGO_PKG_VERSION"))?;
         writeln!(output, "; Number of colors = {}", self.colors.len())?;
         if let Some(index) = &self.transparent_index {

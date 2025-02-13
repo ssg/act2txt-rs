@@ -1,6 +1,4 @@
-use std::{fs::File, io::Read, path::PathBuf, process::ExitCode};
-
-use act::ReadError;
+use std::{fs::File, io::Read, path::PathBuf};
 use clap::Parser;
 use log::{error, warn};
 use env_logger::{Builder, Env};
@@ -27,46 +25,17 @@ struct Params {
     output_filename: PathBuf,
 }
 
-macro_rules! failure {
-    ($arg:expr) => {{
-        error!("{}", $arg);
-        ExitCode::FAILURE
-    }};
-    ($($arg:tt)+) => {{
-        error!($($arg)+);
-        ExitCode::FAILURE
-    }};
-}
-
-fn main() -> ExitCode {
+fn main() -> Result<(), anyhow::Error> {
     Builder::from_env(Env::default().default_filter_or("warn"))
         .format_timestamp(None)
         .init();
     let args = Params::parse();
 
-    let Ok(mut in_file) = File::open(&args.input_filename) else {
-        return failure!("Could not open input file: {:?}", args.input_filename);
-    };
+    let mut in_file = File::open(&args.input_filename)
+        .inspect_err(|_| error!("Could not open input file: {:?}", args.input_filename))?;
 
-    let palette = match act::Palette::read(&mut in_file, args.all) {
-        Ok(p) => p,
-        Err(e) => {
-            return match e {
-                ReadError::InvalidFileLength => {
-                    failure!(
-                        "File is too short, possibly an invalid ACT file: {}",
-                        args.input_filename.display()
-                    )
-                }
-                ReadError::IoError => {
-                    failure!(
-                        "Could not read input file: {}",
-                        args.input_filename.display()
-                    )
-                }
-            }
-        }
-    };
+    let palette = act::Palette::read(&mut in_file, args.all)
+        .inspect_err(|e| error!("{}: {}", e.to_string(), args.input_filename.display()))?;
 
     // check if any bytes remaining after reading
     if in_file.read(&mut [0; 1]).is_ok() {
@@ -91,16 +60,11 @@ fn main() -> ExitCode {
     } else {
         File::create_new(&args.output_filename)
     };
-    let Ok(mut out_file) = result else {
-        return failure!("Could not create file: {:?}", args.output_filename);
-    };
+    let mut out_file = result
+        .inspect_err(|_| error!("Could not create output file: {:?}", args.output_filename))?;
 
-    if palette.write_pdn_txt(&mut out_file).is_err() {
-        return failure!(
-            "Could not write palette to output file {}",
-            args.output_filename.display()
-        );
-    }
+    palette.write_pdn_txt(&mut out_file)
+        .inspect_err(|_| error!("Could not write palette to output file: {:?}", args.output_filename))?;
 
-    ExitCode::SUCCESS
+    Ok(())
 }
